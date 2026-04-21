@@ -105,3 +105,43 @@ This project emphasizes:
 ## **👤 Author**
 
 **Agaesh Kumar**
+
+---
+
+# **👤 USERS Table**
+
+The USERS table stores all system user information required for authentication, access control, and audit tracking.
+
+---
+
+## **Columns Description**
+
+* **id** – Unique identifier for each user (Primary Key, auto-increment)
+
+* **username** – Unique username used for system login
+
+* **email** – Unique email address used for authentication and communication
+
+* **password_hash** – Securely stored encrypted password (not stored in plain text)
+
+* **status** – Current account status:
+
+  * ACTIVE → User can access the system
+  * INACTIVE → Account is temporarily disabled
+  * SUSPENDED → Access restricted
+  * DELETED → Soft deleted account
+
+* **company_id** – References the company the user belongs to (Foreign Key → COMPANY.id)
+
+* **role_id** – Defines the user’s role and permissions (Foreign Key → ROLES.id)
+
+* **created_at** – Timestamp when the user record was created
+
+* **updated_at** – Timestamp when the record was last updated
+
+---
+
+## **Purpose**
+
+This table ensures secure user authentication, role-based access control, and proper association of users with companies in a multi-tenant ERP system.
+

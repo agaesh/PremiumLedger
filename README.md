@@ -145,3 +145,78 @@ The USERS table stores all system user information required for authentication, 
 
 This table ensures secure user authentication, role-based access control, and proper association of users with companies in a multi-tenant ERP system.
 
+---
+
+# **🏢 COMPANY Table**
+
+The COMPANY table stores all organization-related information in the system. It represents each registered business in the ERP and supports a multi-company (multi-tenant) structure where each company operates independently.
+
+---
+
+## **Columns Description**
+
+* **id** – Unique identifier for each company (Primary Key, auto-increment)
+
+* **company_code** – Unique internal code used to identify the company in the system
+
+* **company_name** – Official name of the company (must be unique)
+
+* **email** – Primary email address of the company (used for communication)
+
+* **phone** – Contact number of the company
+
+---
+
+* **is_gst_registered** – Indicates GST registration status (0 = No, 1 = Yes)
+
+* **is_sst_registered** – Indicates SST registration status (0 = No, 1 = Yes)
+
+* **reg_no** – Business registration number issued by authority
+
+* **tax_no** – Tax reference number used for taxation purposes
+
+* **tin_no** – Tax Identification Number (TIN)
+
+---
+
+* **address_line1** – Primary address of the company
+
+* **address_line2** – Secondary address (optional)
+
+* **postal_code** – Postal or ZIP code
+
+* **country_code** – Country identifier (e.g., MY, SG)
+
+* **state** – State or region of the company
+
+* **city** – City location of the company
+
+---
+
+* **currency_code** – Default currency used by the company for transactions (e.g., USD)
+
+---
+
+* **status** – Current status of the company:
+
+  * ACTIVE → Company is active and operational
+  * INACTIVE → Company is temporarily disabled
+  * DELETED → Company is soft deleted
+
+---
+
+* **created_by** – User ID who created the record (Foreign Key → USERS.id)
+
+* **updated_by** – User ID who last updated the record (Foreign Key → USERS.id)
+
+* **created_at** – Timestamp when the company record was created
+
+* **updated_at** – Timestamp when the record was last updated
+
+---
+
+## **Purpose**
+
+The COMPANY table acts as the core entity for multi-tenant support in the ERP system. It ensures that each company’s data is isolated, structured, and properly linked with users for audit and management purposes.
+
+

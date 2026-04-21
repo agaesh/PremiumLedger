@@ -133,8 +133,6 @@ The USERS table stores all system user information required for authentication, 
 
 * **company_id** – References the company the user belongs to (Foreign Key → COMPANY.id)
 
-* **role_id** – Defines the user’s role and permissions (Foreign Key → ROLES.id)
-
 * **created_at** – Timestamp when the user record was created
 
 * **updated_at** – Timestamp when the record was last updated
@@ -147,6 +145,111 @@ This table ensures secure user authentication, role-based access control, and pr
 
 ---
 
+# 🧠 USERS Table – Design Overview
+
+The **USERS** table is designed with strong data integrity rules to support authentication, authorization, and a multi-company architecture.
+
+---
+
+## 🔐 Constraints
+
+### 1. Primary Key
+
+* **id** – Uniquely identifies each user record
+
+---
+
+### 2. Unique Constraints
+
+* **username** – Must be unique across the system
+* **email** – Must be unique across the system
+
+---
+
+### 3. Foreign Keys
+
+* **company_id** → References `COMPANY(id)`
+  
+---
+
+### 4. NOT NULL Constraints
+
+The following fields are mandatory:
+
+* username
+* email
+* password_hash
+* company_id
+* status
+
+---
+
+### 5. Check Constraint
+
+* **status** must be one of:
+
+  * ACTIVE
+  * INACTIVE
+  * SUSPENDED
+  * DELETED
+
+---
+
+## ⚡ Indexes
+
+* **username** → Unique index (optimized for login lookup)
+* **email** → Unique index (optimized for authentication lookup)
+* **company_id** → Indexed (used for company-based filtering)
+  
+---
+
+## 🔗 Relationships
+
+* **USERS → COMPANY**
+
+  * Type: Many-to-One
+  * Foreign Key: `company_id`
+    
+---
+# 🧠 USERS Table – SQL Server Implementation (No role_id)
+
+```sql
+CREATE TABLE USERS (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+
+    company_id INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+
+    created_at DATETIME NOT NULL DEFAULT GETDATE(),
+    updated_at DATETIME NOT NULL DEFAULT GETDATE(),
+
+    -- Foreign Key: Company
+    CONSTRAINT fk_users_company
+        FOREIGN KEY (company_id)
+        REFERENCES COMPANY(id)
+        ON DELETE CASCADE,
+
+    -- Status validation
+    CONSTRAINT chk_users_status
+        CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'DELETED'))
+);
+```
+
+---
+
+# ⚡ Indexes (Recommended)
+
+```sql
+CREATE INDEX idx_users_company_id
+ON USERS(company_id);
+```
+
+
+---
 # **🏢 COMPANY Table**
 
 The COMPANY table stores all organization-related information in the system. It represents each registered business in the ERP and supports a multi-company (multi-tenant) structure where each company operates independently.

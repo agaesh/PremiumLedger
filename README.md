@@ -219,4 +219,69 @@ The COMPANY table stores all organization-related information in the system. It 
 
 The COMPANY table acts as the core entity for multi-tenant support in the ERP system. It ensures that each company’s data is isolated, structured, and properly linked with users for audit and management purposes.
 
+---
+
+# **📦 PRODUCTS Table**
+
+The PRODUCTS table stores all product-related master data used across inventory, sales, and purchase modules. It defines product identity, classification, pricing, and configuration flags that control how each product behaves in the ERP system.
+
+---
+
+## **Columns Description**
+
+* **id** – Unique identifier for each product (Primary Key, auto-increment)
+
+* **product_code** – Unique system-generated code used to identify the product
+
+* **name** – Name of the product (display name used in transactions)
+
+* **description** – Additional details or specifications of the product
+
+---
+
+* **brand_code** – Reference code for the product brand (used for grouping products by brand)
+
+* **category_code** – Reference code for product category classification
+
+* **barcode** – Barcode value used for scanning and identification in POS/inventory
+
+---
+
+* **base_uom** – Base unit of measurement (e.g., pcs, kg, box)
+
+---
+
+* **is_multi_uom** – Indicates if product supports multiple units of measurement (0 = No, 1 = Yes)
+
+* **is_packaged** – Indicates whether the product is sold as a packaged item (0 = No, 1 = Yes)
+
+* **is_assembly** – Indicates whether the product is an assembled item made from components (0 = No, 1 = Yes)
+
+* **is_inventory_item** – Indicates whether the product affects inventory stock (1 = Yes, 0 = No)
+
+---
+
+* **price** – Selling price of the product
+
+---
+
+* **status** – Current status of the product:
+
+  * ACTIVE → Product is available for transactions
+  * INACTIVE → Product is disabled
+  * DELETED → Product is soft deleted
+
+---
+
+* **created_at** – Timestamp when the product record was created
+
+* **updated_at** – Timestamp when the product record was last updated
+
+---
+
+## **Purpose**
+
+The PRODUCTS table is a core master table in the ERP system. It defines all product-related configurations and supports inventory tracking, sales transactions, and purchase operations. The table also includes multiple flags to handle complex product behaviors such as packaging, assembly, and multi-unit handling.
+
+
 

@@ -145,7 +145,7 @@ This table ensures secure user authentication, role-based access control, and pr
 
 ---
 
-# 🧠 USERS Table – Design Overview
+## 🧠 USERS Table – Design Overview
 
 The **USERS** table is designed with strong data integrity rules to support authentication, authorization, and a multi-company architecture.
 

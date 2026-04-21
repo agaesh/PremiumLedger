@@ -151,28 +151,28 @@ The **USERS** table is designed with strong data integrity rules to support auth
 
 ---
 
-## 🔐 Constraints
+### 🔐 Constraints
 
-### 1. Primary Key
+#### 1. Primary Key
 
 * **id** – Uniquely identifies each user record
 
 ---
 
-### 2. Unique Constraints
+#### 2. Unique Constraints
 
 * **username** – Must be unique across the system
 * **email** – Must be unique across the system
 
 ---
 
-### 3. Foreign Keys
+#### 3. Foreign Keys
 
 * **company_id** → References `COMPANY(id)`
   
 ---
 
-### 4. NOT NULL Constraints
+#### 4. NOT NULL Constraints
 
 The following fields are mandatory:
 
@@ -184,7 +184,7 @@ The following fields are mandatory:
 
 ---
 
-### 5. Check Constraint
+#### 5. Check Constraint
 
 * **status** must be one of:
 
@@ -195,7 +195,7 @@ The following fields are mandatory:
 
 ---
 
-## ⚡ Indexes
+#### ⚡ Indexes
 
 * **username** → Unique index (optimized for login lookup)
 * **email** → Unique index (optimized for authentication lookup)
@@ -203,7 +203,7 @@ The following fields are mandatory:
   
 ---
 
-## 🔗 Relationships
+#### 🔗 Relationships
 
 * **USERS → COMPANY**
 
@@ -211,7 +211,7 @@ The following fields are mandatory:
   * Foreign Key: `company_id`
     
 ---
-## 🧠 USERS Table – SQL Server Implementation (No role_id)
+#### 🧠 USERS Table – SQL Server Implementation (No role_id)
 
 ```sql
 CREATE TABLE USERS (
@@ -241,7 +241,7 @@ CREATE TABLE USERS (
 
 ---
 
-# ⚡ Indexes (Recommended)
+#### ⚡ Indexes (Recommended)
 
 ```sql
 CREATE INDEX idx_users_company_id

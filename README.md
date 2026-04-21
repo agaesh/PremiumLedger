@@ -211,7 +211,7 @@ The following fields are mandatory:
   * Foreign Key: `company_id`
     
 ---
-# 🧠 USERS Table – SQL Server Implementation (No role_id)
+## 🧠 USERS Table – SQL Server Implementation (No role_id)
 
 ```sql
 CREATE TABLE USERS (

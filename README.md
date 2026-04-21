@@ -195,7 +195,7 @@ The following fields are mandatory:
 
 ---
 
-#### ⚡ Indexes
+### ⚡ Indexes
 
 * **username** → Unique index (optimized for login lookup)
 * **email** → Unique index (optimized for authentication lookup)
@@ -203,7 +203,7 @@ The following fields are mandatory:
   
 ---
 
-#### 🔗 Relationships
+### 🔗 Relationships
 
 * **USERS → COMPANY**
 
@@ -211,7 +211,7 @@ The following fields are mandatory:
   * Foreign Key: `company_id`
     
 ---
-#### 🧠 USERS Table – SQL Server Implementation (No role_id)
+### 🧠 USERS Table – SQL Server Implementation (No role_id)
 
 ```sql
 CREATE TABLE USERS (
@@ -241,7 +241,7 @@ CREATE TABLE USERS (
 
 ---
 
-#### ⚡ Indexes (Recommended)
+### ⚡ Indexes (Recommended)
 
 ```sql
 CREATE INDEX idx_users_company_id

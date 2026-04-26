@@ -52,33 +52,42 @@ This system models real-world business processes using a **database-first approa
 * **Version Control:** Git & GitHub
 
 ---
+## Database Entities
 
-## **🧱 Database Design**
+### 🧱 1. DB_COMPANY (Central Database)
 
-The system uses a relational model with key entities:
+#### Entities:
 
+* Company
+* Database_Company
+
+---
+
+### 🟢 2. TENANT DB (Company ERP Database)
+
+#### Entities:
 * Users
-* Companies
-* Roles
 * Products
-* Categories
+* Suppliers
+* Customers
 * Orders
 * OrderDetails
-* Suppliers
 * Purchases
-
-All tables are designed with proper **primary keys, foreign keys, and constraints** to ensure consistency and avoid data anomalies.
-
+* PurchasesDetails
+  
 ---
 
 ## **🔗 Key Relationships**
 
 * Users → Company
-* Users → Roles
 * Orders → Users
 * OrderDetails → Orders
 * OrderDetails → Products
 * Products → Suppliers
+* Purchases → Suppliers
+* Purchases → Users
+* PurchaseDetails → Purchases
+* PurchaseDetails → Products
 
 ---
 
@@ -108,7 +117,216 @@ This project emphasizes:
 
 ---
 
-# **👤 USERS Table**
+# 🏗 Multi-Tenant Database Architecture (ERP System)
+
+## 🧠 Overview
+
+The system follows a **database-per-tenant architecture**, where each company (tenant) has its own isolated database. A central database is used to manage company registration and database mapping.
+
+This design ensures:
+
+* strong data isolation
+* better security
+* independent scalability per company
+* simplified backup and restore per tenant
+
+---
+
+## 🔵 1. Central Database (Control Plane)
+
+The central database is responsible for managing all registered companies and their corresponding database configurations.
+
+### 📌 Tables in Central DB
+
+#### 🏢 Company
+
+Stores company master information.
+
+```sql id="ct1"
+CREATE TABLE Company(
+	id INT IDENTITY(1,1) PRIMARY KEY,
+	company_code VARCHAR(20) NOT NULL UNIQUE,
+	company_name VARCHAR(100) NOT NULL UNIQUE,
+	email VARCHAR(100) NOT NULL UNIQUE,
+	phone VARCHAR(20),
+
+	is_gst_registered BIT NOT NULL DEFAULT 0,
+	is_sst_registered BIT NOT NULL DEFAULT 0,
+
+	reg_no VARCHAR(20),
+	tax_no VARCHAR(20),
+	tin_no VARCHAR(20),
+
+	address_line1 VARCHAR(255),
+	address_line2 VARCHAR(255),
+	postal_code VARCHAR(20),
+	country_code VARCHAR(10),
+	state VARCHAR(50),
+	city VARCHAR(50),
+
+	currency_code VARCHAR(5) NOT NULL DEFAULT 'USD',
+
+	status VARCHAR(10) NOT NULL 
+		CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED')) 
+		DEFAULT 'ACTIVE',
+
+	created_by INT NULL,
+	updated_by INT NULL,
+
+	created_at DATETIME DEFAULT GETDATE(),
+	updated_at DATETIME DEFAULT GETDATE()
+);
+```
+
+---
+
+#### 🗄 Company_Database
+
+Stores database configuration for each tenant company.
+
+```sql id="ct2"
+CREATE TABLE CompanyDatabase (
+	id INT IDENTITY(1,1) PRIMARY KEY,
+	company_id INT NOT NULL,
+
+	database_name VARCHAR(100) NOT NULL,
+	server_name VARCHAR(100) NULL,
+	connection_string VARCHAR(500) NULL,
+
+	created_at DATETIME DEFAULT GETDATE()
+);
+```
+
+---
+
+### 🧠 Role of Central DB
+
+The central database is responsible for:
+
+* Company registration
+* Mapping company → database
+* Managing tenant database connection details
+* System-level control operations
+
+---
+
+## 🟢 2. Tenant Database (Data Plane)
+
+Each company has its own isolated database.
+
+Example:
+
+* `KFC_DB`
+* `Starbucks_DB`
+* `ABC_Retail_DB`
+
+---
+
+### 📌 What is stored in Tenant DB
+
+Each tenant database contains **business data only**, such as:
+
+### 👤 Users (company staff)
+
+* cashier
+* manager
+* accountant
+* branch admin
+
+### 📦 Core ERP modules
+
+* Products
+* Inventory
+* Orders
+* Invoices
+* Payments
+* Suppliers
+* Purchases
+
+---
+
+## 🔄 3. Multi-Tenant Flow
+
+### Step 1: Company Registration
+
+1. Admin inserts company into `Company`
+2. System creates a new database (e.g., `KFC_DB`)
+3. Entry is added into `CompanyDatabase`
+
+---
+
+### Step 2: Login Flow
+
+1. User logs in
+2. System identifies company via email/domain/company code
+3. Fetches connection string from `CompanyDatabase`
+4. Dynamically connects to tenant database
+
+---
+
+### Step 3: Runtime Operation
+
+* All ERP operations (orders, invoices, stock) happen inside tenant DB only
+* Central DB is not used for business transactions
+
+---
+
+# 🧠 Architecture Diagram (Logical)
+
+```text id="arch1"
+                ┌──────────────────────┐
+                │   Central Database    │
+                │----------------------│
+                │ Company              │
+                │ CompanyDatabase      │
+                └─────────┬────────────┘
+                          │
+          fetch connection string
+                          │
+                          ▼
+     ┌────────────────────────────────┐
+     │     Tenant Database (KFC_DB)   │
+     │--------------------------------│
+     │ Users, Orders, Inventory, etc. │
+     └────────────────────────────────┘
+```
+
+---
+
+# ⚙️ Key Characteristics
+
+## ✔ Data Isolation
+
+Each company’s data is fully separated.
+
+## ✔ Scalability
+
+Each tenant database can scale independently.
+
+## ✔ Security
+
+No cross-company data access.
+
+## ✔ Maintainability
+
+Each database can be backed up or restored independently.
+
+---
+
+# 🚀 Summary
+
+This system uses a:
+
+> **Database-per-tenant architecture with a central control database**
+
+* Central DB → company & infrastructure management
+* Tenant DB → full ERP business operations
+* Dynamic connection switching based on company selection
+
+---
+
+
+# **👤 Database Design USERS Table**
 
 The USERS table stores all system user information required for authentication, access control, and audit tracking.
 
@@ -130,8 +348,6 @@ The USERS table stores all system user information required for authentication, 
   * INACTIVE → Account is temporarily disabled
   * SUSPENDED → Access restricted
   * DELETED → Soft deleted account
-
-* **company_id** – References the company the user belongs to (Foreign Key → COMPANY.id)
 
 * **created_at** – Timestamp when the user record was created
 
@@ -166,13 +382,7 @@ The **USERS** table is designed with strong data integrity rules to support auth
 
 ---
 
-#### 3. Foreign Keys
-
-* **company_id** → References `COMPANY(id)`
-  
----
-
-#### 4. NOT NULL Constraints
+#### 3. NOT NULL Constraints
 
 The following fields are mandatory:
 
@@ -184,7 +394,7 @@ The following fields are mandatory:
 
 ---
 
-#### 5. Check Constraint
+#### 4. Check Constraint
 
 * **status** must be one of:
 
@@ -199,7 +409,6 @@ The following fields are mandatory:
 
 * **username** → Unique index (optimized for login lookup)
 * **email** → Unique index (optimized for authentication lookup)
-* **company_id** → Indexed (used for company-based filtering)
   
 ---
 
@@ -208,7 +417,6 @@ The following fields are mandatory:
 * **USERS → COMPANY**
 
   * Type: Many-to-One
-  * Foreign Key: `company_id`
     
 ---
 ### 🧠 USERS Table – SQL Server Implementation (No role_id)
@@ -216,111 +424,17 @@ The following fields are mandatory:
 ```sql
 CREATE TABLE USERS (
     id INT IDENTITY(1,1) PRIMARY KEY,
-
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-
-    company_id INT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-
     created_at DATETIME NOT NULL DEFAULT GETDATE(),
     updated_at DATETIME NOT NULL DEFAULT GETDATE(),
-
-    -- Foreign Key: Company
-    CONSTRAINT fk_users_company
-        FOREIGN KEY (company_id)
-        REFERENCES COMPANY(id)
-        ON DELETE CASCADE,
-
     -- Status validation
     CONSTRAINT chk_users_status
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'DELETED'))
 );
 ```
-
----
-
-### ⚡ Indexes (Recommended)
-
-```sql
-CREATE INDEX idx_users_company_id
-ON USERS(company_id);
-```
-
-
----
-# **🏢 COMPANY Table**
-
-The COMPANY table stores all organization-related information in the system. It represents each registered business in the ERP and supports a multi-company (multi-tenant) structure where each company operates independently.
-
----
-
-## **Columns Description**
-
-* **id** – Unique identifier for each company (Primary Key, auto-increment)
-
-* **company_code** – Unique internal code used to identify the company in the system
-
-* **company_name** – Official name of the company (must be unique)
-
-* **email** – Primary email address of the company (used for communication)
-
-* **phone** – Contact number of the company
-
----
-
-* **is_gst_registered** – Indicates GST registration status (0 = No, 1 = Yes)
-
-* **is_sst_registered** – Indicates SST registration status (0 = No, 1 = Yes)
-
-* **reg_no** – Business registration number issued by authority
-
-* **tax_no** – Tax reference number used for taxation purposes
-
-* **tin_no** – Tax Identification Number (TIN)
-
----
-
-* **address_line1** – Primary address of the company
-
-* **address_line2** – Secondary address (optional)
-
-* **postal_code** – Postal or ZIP code
-
-* **country_code** – Country identifier (e.g., MY, SG)
-
-* **state** – State or region of the company
-
-* **city** – City location of the company
-
----
-
-* **currency_code** – Default currency used by the company for transactions (e.g., USD)
-
----
-
-* **status** – Current status of the company:
-
-  * ACTIVE → Company is active and operational
-  * INACTIVE → Company is temporarily disabled
-  * DELETED → Company is soft deleted
-
----
-
-* **created_by** – User ID who created the record (Foreign Key → USERS.id)
-
-* **updated_by** – User ID who last updated the record (Foreign Key → USERS.id)
-
-* **created_at** – Timestamp when the company record was created
-
-* **updated_at** – Timestamp when the record was last updated
-
----
-
-## **Purpose**
-
-The COMPANY table acts as the core entity for multi-tenant support in the ERP system. It ensures that each company’s data is isolated, structured, and properly linked with users for audit and management purposes.
 
 ---
 
@@ -382,9 +496,79 @@ The PRODUCTS table stores all product-related master data used across inventory,
 
 ---
 
-## **Purpose**
+## 🧠 PRODUCTS Table – Design Overview
 
-The PRODUCTS table is a core master table in the ERP system. It defines all product-related configurations and supports inventory tracking, sales transactions, and purchase operations. The table also includes multiple flags to handle complex product behaviors such as packaging, assembly, and multi-unit handling.
+The **PRODUCTS** table is designed to maintain a structured and consistent product catalog across the system. It supports inventory management, sales processing, and multi-company (tenant-based) architecture by ensuring each product is properly categorized, traceable, and linked to its respective business context.
 
+---
 
+### 🔐 Constraints
 
+#### 1. Primary Key
+
+* **id** – Uniquely identifies each product record in the system
+
+---
+
+#### 2. Unique Constraints
+
+* **product_code** – Must be unique across the system to ensure consistent product identification
+
+---
+
+#### 3. Foreign Key Relationships
+
+* **brand_code** – Links the product to a specific brand
+* **category_code** – Links the product to its category for classification
+* **supplier_code** – Links the product to its supplier for procurement tracking
+* **company_code** – Ensures the product belongs to a specific company (tenant isolation)
+
+---
+
+### 📦 Data Integrity Rules
+
+* Product name must not be null
+* Product code must follow a consistent system-generated format
+* Price and stock-related fields must be non-negative
+* Deleted products should be soft-deleted (if auditing is required)
+
+---
+
+### 🧩 Purpose in System
+
+The **PRODUCTS** table acts as the central entity for all sales and inventory operations, ensuring that every transaction, order, and purchase references a valid and standardized product record within the correct company context.
+
+---
+
+### Products Table - SQL IMPLEMENTATION
+
+```sql
+CREATE TABLE Products (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+
+    product_code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+
+    brand_code VARCHAR(50) NULL,
+    category_code VARCHAR(50) NULL,
+
+    barcode VARCHAR(100) NULL UNIQUE,
+
+    base_uom VARCHAR(20) NOT NULL,
+
+    is_multi_uom BIT NOT NULL DEFAULT 0,
+    is_packaged BIT NOT NULL DEFAULT 0,
+    is_assembly BIT NOT NULL DEFAULT 0,
+    is_inventory_item BIT NOT NULL DEFAULT 1,
+
+    price DECIMAL(18,2) NOT NULL DEFAULT 0,
+
+    status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+
+    created_at DATETIME NOT NULL DEFAULT GETDATE(),
+    updated_at DATETIME NULL,
+
+    CONSTRAINT CK_Products_Status CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED'))
+);
+```

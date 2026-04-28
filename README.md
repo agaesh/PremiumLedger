@@ -728,6 +728,195 @@ CREATE TABLE product_groups (
 
 ---
 
+# 🏢 Suppliers – Master Data Design
+
+## 🧩 Purpose in System
+
+The **SUPPLIERS** table serves as the central master data repository for all vendor and supplier information within the ERP system. It standardizes supplier identity, financial details, compliance status, and procurement-related configurations, ensuring consistent usage across purchasing, inventory, accounts payable, and reporting modules.
+
+---
+
+## Column Description
+
+* **id** – Unique identifier for each supplier record (Primary Key, auto-increment)
+* **supplier_code** – Unique system-generated code for supplier reference across ERP
+* **company_name** – Registered company name of the supplier
+* **legal_name** – Official legal entity name (if different from company name)
+* **registration_no** – Business registration number (SSM / GST / VAT / tax ID)
+* **tax_registration_no** – Tax identification number for compliance purposes
+* **industry_type** – Business industry classification of the supplier
+
+### Contact Information
+
+* **primary_contact_name** – Main contact person at supplier company
+* **primary_email** – Primary email address for communication
+* **primary_phone** – Primary phone number
+* **alternate_phone** – Secondary contact number
+* **website** – Supplier official website URL
+
+### Address Information
+
+* **address_line1** – Primary address line
+* **address_line2** – Secondary address line
+* **city** – City of supplier location
+* **state** – State or region
+* **postcode** – Postal code
+* **country** – Country of supplier
+
+### Financial Information
+
+* **currency_code** – Default transaction currency (e.g., MYR, USD)
+* **payment_terms_days** – Credit payment terms in number of days
+* **credit_limit** – Maximum credit allowed for supplier
+* **outstanding_balance** – Current unpaid balance with supplier
+* **bank_name** – Supplier bank name
+* **bank_account_no** – Bank account number
+* **bank_swift_code** – SWIFT/IBAN code for international payments
+* **tax_type** – Tax category (SST, GST, VAT, NONE)
+* **tax_rate** – Applicable tax percentage
+
+### Procurement Control
+
+* **lead_time_days** – Average delivery lead time in days
+* **minimum_order_value** – Minimum allowed purchase order value
+* **maximum_order_value** – Maximum allowed purchase order value
+* **quality_rating** – Internal quality score (0–5)
+* **delivery_rating** – Delivery performance score (0–5)
+* **return_policy_days** – Allowed return window in days
+
+### Status & Control
+
+* **status** – Current supplier status (ACTIVE, INACTIVE, SUSPENDED, BLACKLISTED, DELETED)
+* **is_preferred** – Indicates preferred supplier for purchasing decisions
+* **is_local_supplier** – Indicates whether supplier is local or international
+
+### Audit Information
+
+* **created_at** – Timestamp when record was created
+* **updated_at** – Timestamp when record was last updated
+
+---
+
+## 🔐 Constraints
+
+### 1. Primary Key
+
+* **id** – Uniquely identifies each supplier record in the system
+
+### 2. Unique Constraint
+
+* **supplier_code** – Ensures no duplicate supplier exists in the system
+
+### 3. Check Constraint (status)
+
+Ensures valid supplier lifecycle states only:
+
+* ACTIVE
+* INACTIVE
+* SUSPENDED
+* BLACKLISTED
+* DELETED
+
+### 4. Check Constraint (risk / optional business rule)
+
+* risk_level (if implemented) should only allow:
+
+  * LOW
+  * MEDIUM
+  * HIGH
+
+---
+
+## 📦 Data Integrity Rules – Suppliers (Brief)
+
+* **Supplier code is required & unique**
+  Each supplier must have a system-generated unique code used across all ERP modules.
+
+* **Company name is mandatory**
+  Supplier must always have a valid company name for identification.
+
+* **Controlled status values only**
+  Status must be one of: ACTIVE, INACTIVE, SUSPENDED, BLACKLISTED, DELETED.
+
+* **Financial integrity must be maintained**
+  Credit limit, payment terms, and outstanding balance must always be valid and non-negative.
+
+* **Soft delete rule**
+  Suppliers must not be physically deleted; use `status = DELETED` for audit traceability.
+
+* **Audit fields required**
+  `created_at` must be set on creation, and `updated_at` must be updated on every modification.
+
+* **Procurement consistency**
+  Supplier ratings, lead time, and order limits must reflect real operational performance and be updated periodically.
+
+---
+
+## 🧠 Purpose in System
+
+The **SUPPLIERS** table acts as the centralized master entity for managing all vendor relationships within the ERP system. It ensures consistent supplier identification, financial control, procurement evaluation, and compliance tracking across purchasing, inventory, and accounting modules. It enables structured vendor management for enterprise-level operations involving multiple supplier types and business scales.
+
+---
+
+## 🧠 SQL Server Implementation
+
+```sql
+CREATE TABLE suppliers (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+
+    supplier_code VARCHAR(50) NOT NULL UNIQUE,
+    company_name VARCHAR(255) NOT NULL,
+    legal_name VARCHAR(255) NULL,
+    registration_no VARCHAR(100) NULL,
+    tax_registration_no VARCHAR(100) NULL,
+    industry_type VARCHAR(100) NULL,
+
+    primary_contact_name VARCHAR(150) NULL,
+    primary_email VARCHAR(150) NULL,
+    primary_phone VARCHAR(30) NULL,
+    alternate_phone VARCHAR(30) NULL,
+    website VARCHAR(255) NULL,
+
+    address_line1 VARCHAR(255) NULL,
+    address_line2 VARCHAR(255) NULL,
+    city VARCHAR(100) NULL,
+    state VARCHAR(100) NULL,
+    postcode VARCHAR(20) NULL,
+    country VARCHAR(100) NULL,
+
+    currency_code VARCHAR(10) NOT NULL DEFAULT 'MYR',
+    payment_terms_days INT NOT NULL DEFAULT 30,
+    credit_limit DECIMAL(18,2) NOT NULL DEFAULT 0,
+    outstanding_balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+
+    bank_name VARCHAR(150) NULL,
+    bank_account_no VARCHAR(100) NULL,
+    bank_swift_code VARCHAR(50) NULL,
+
+    tax_type VARCHAR(50) NULL,
+    tax_rate DECIMAL(5,2) NULL,
+
+    lead_time_days INT NULL,
+    minimum_order_value DECIMAL(18,2) NULL,
+    maximum_order_value DECIMAL(18,2) NULL,
+
+    quality_rating DECIMAL(3,2) NULL,
+    delivery_rating DECIMAL(3,2) NULL,
+    return_policy_days INT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'BLACKLISTED', 'DELETED')),
+
+    is_preferred BIT NOT NULL DEFAULT 0,
+    is_local_supplier BIT NOT NULL DEFAULT 1,
+
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+```
+
+---
+
 
 
 

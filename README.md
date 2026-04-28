@@ -713,21 +713,16 @@ CREATE TABLE product_groups (
     id INT IDENTITY(1,1) PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     code_desc VARCHAR(50) NOT NULL,
-
     type VARCHAR(20) NOT NULL
-        CHECK (group_type IN ('BRAND', 'CATEGORY', 'GROUP', 'SUBGROUP')),
-
+        CHECK (type IN ('BRAND', 'CATEGORY', 'GROUP', 'SUBGROUP')),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED')),
-
     description VARCHAR(255) NULL,
     parent_id INT NULL,
-
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
-
     CONSTRAINT fk_product_group_parent
-        FOREIGN KEY (parent_id) REFERENCES product_group(id)
+        FOREIGN KEY (parent_id) REFERENCES product_groups(id)
 );
 ```
 

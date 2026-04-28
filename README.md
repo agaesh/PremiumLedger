@@ -790,12 +790,14 @@ The **SUPPLIERS** table serves as the central master data repository for all ven
 * **is_preferred** – Indicates preferred supplier for purchasing decisions
 * **is_local_supplier** – Indicates whether supplier is local or international
 
+### Internale Notes
+ 
+* **internal_notes** – Optional internal remarks about the supplier for administrative reference
+  
 ### Audit Information
 
 * **created_at** – Timestamp when record was created
 * **updated_at** – Timestamp when record was last updated
-
----
 
 ## 🔐 Constraints
 
@@ -909,7 +911,7 @@ CREATE TABLE suppliers (
 
     is_preferred BIT NOT NULL DEFAULT 0,
     is_local_supplier BIT NOT NULL DEFAULT 1,
-
+    internal_notes VARCHAR(255) NULL,
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
@@ -1002,6 +1004,12 @@ The **CUSTOMERS** table serves as the central master data repository for all com
 * **last_purchase_date** – Last transaction date
 * **customer_rating** – Internal rating (0–5)
 
+---
+
+ Internal Notes
+ 
+* **internal_notes** – Optional internal remarks about the Customer for administrative reference
+  
 ---
 
 ### 🧾 Audit Fields
@@ -1137,7 +1145,7 @@ CREATE TABLE customers (
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'BLACKLISTED', 'DELETED')),
 
     is_preferred BIT NOT NULL DEFAULT 0,
-
+    internal_notes VARCHAR(500) NULL,
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );

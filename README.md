@@ -68,6 +68,7 @@ This system models real-world business processes using a **database-first approa
 #### Entities:
 * Users
 * Products
+* Product_Groups
 * Suppliers
 * Customers
 * Orders
@@ -496,9 +497,49 @@ The PRODUCTS table stores all product-related master data used across inventory,
 
 ---
 
+## 🧠 PRODUCT IDENTIFICATION
+
+* **barcode** – Scannable code used for identifying the product in POS and inventory
+* **model_no** – Manufacturer-defined model number of the product
+
+---
+
+## 📂 PRODUCT CLASSIFICATION
+
+* **group_code** – Code used to classify the product into a specific group/category
+* **brand_code** – Code used to classify the product into a specific brand code
+* **category_code** – Code used to classify the product into a specific Category code
+* 
+---
+
+## 📦 INVENTORY TRACKING CONTROL
+
+* **is_batch_tracked** – Indicates whether the product is managed using batch/lot tracking (used for expiry, manufacturing lots, etc.)
+* **is_serial_tracked** – Indicates whether each individual unit of the product is tracked using a unique serial number
+
+---
+
+## 💰 BUSINESS & SUPPLY MODEL
+
+* **is_consignment** – Indicates whether the product is supplied under consignment (ownership remains with supplier until sold)
+
+---
+
+## 💰 SHIPPING RELATED FIELDS
+
+* **width** – Physical width of the product (used for packaging and space calculation)
+* **length** – Physical length of the product (used for shipment and dimensional calculations)
+* **height** – Physical height of the product (used for carton/box sizing and logistics handling)
+* **weight_in_kg** – Actual weight of the product in kilograms (used for courier and freight charging)
+* **volume_m3** – Total volume of the product in cubic meters (calculated for shipping space utilization and logistics planning)
+
+---
+
 ## 🧠 PRODUCTS Table – Design Overview
 
 The **PRODUCTS** table is designed to maintain a structured and consistent product catalog across the system. It supports inventory management, sales processing, and multi-company (tenant-based) architecture by ensuring each product is properly categorized, traceable, and linked to its respective business context.
+
+## **Columns Description**
 
 ---
 
@@ -513,6 +554,8 @@ The **PRODUCTS** table is designed to maintain a structured and consistent produ
 #### 2. Unique Constraints
 
 * **product_code** – Must be unique across the system to ensure consistent product identification
+* **barcode - Must be unique accross the system to ensure same barcode not being used by another product.
+* **model_code - Must be unique accross the system to ensure same model_code not being used by another product.
 
 ---
 
@@ -528,9 +571,9 @@ The **PRODUCTS** table is designed to maintain a structured and consistent produ
 ### 📦 Data Integrity Rules
 
 * Product name must not be null
-* Product code must follow a consistent system-generated format
-* Price and stock-related fields must be non-negative
-* Deleted products should be soft-deleted (if auditing is required)
+* Product code must follow a consistent system-generated format.
+* Price and stock-related fields must be non-negative.
+* Deleted products should be soft-deleted (if auditing is required).
 
 ---
 
@@ -545,30 +588,151 @@ The **PRODUCTS** table acts as the central entity for all sales and inventory op
 ```sql
 CREATE TABLE Products (
     id INT IDENTITY(1,1) PRIMARY KEY,
-
     product_code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     description TEXT NULL,
-
     brand_code VARCHAR(50) NULL,
     category_code VARCHAR(50) NULL,
-
     barcode VARCHAR(100) NULL UNIQUE,
-
     base_uom VARCHAR(20) NOT NULL,
-
     is_multi_uom BIT NOT NULL DEFAULT 0,
     is_packaged BIT NOT NULL DEFAULT 0,
     is_assembly BIT NOT NULL DEFAULT 0,
     is_inventory_item BIT NOT NULL DEFAULT 1,
-
     price DECIMAL(18,2) NOT NULL DEFAULT 0,
-
     status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
-
     created_at DATETIME NOT NULL DEFAULT GETDATE(),
     updated_at DATETIME NULL,
-
+	model_no VARCHAR(50) NULL UNIQUE, 
+	is_batch_tracked BIT NOT NULL DEFAULT 0,
+	is_serial_tracked BIT NOT NULL DEFAULT 0,
+	is_expirable_tracked BIT NOT NULL DEFAULT 0,
+	weight_kg   DECIMAL(10,3) NULL,  -- Weight in kilograms
+	length_m    DECIMAL(10,3) NULL,  -- Length in meters
+	width_m     DECIMAL(10,3) NULL,  -- Width in meters
+	height_m    DECIMAL(10,3) NULL,  -- Height in meters
+	volume_m3   DECIMAL(12,6) NULL,  -- Calculated volume (m³)
     CONSTRAINT CK_Products_Status CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED'))
 );
+
 ```
+## Product_Groups - For Storing Group Code, Sub Group Code, Brand Code, Category Code
+
+This **Product_Groups** table is used for storing hierarchical and classification master data such as **group_code, subgroup_code, brand_code, category_code**, and other reusable reference codes used across the ERP system.
+
+It acts as a **unified master table for product classification and grouping structure**, supporting flexible hierarchy through parent-child relationships.
+
+---
+
+## Column Description
+
+* **id** – Unique identifier for each product group record (Primary Key, auto-increment)
+* **code** – Unique code for each group/brand/category/subgroup (system reference key)
+* **code_desc** – Human-readable name or description of the code
+* **type** – Defines the classification type (BRAND, CATEGORY, GROUP, SUBGROUP)
+* **status** – Current status of the record (ACTIVE, INACTIVE, DELETED)
+* **description** – Additional notes or information about the group
+* **parent_id** – Self-referencing ID to support hierarchical structure (subgroup mapping)
+* **created_at** – Timestamp when the record was created
+* **updated_at** – Timestamp when the record was last updated
+
+---
+
+### 🔐 Constraints
+
+#### 1. Primary Key
+
+* **id** – Uniquely identifies each product_group record in the system
+
+#### 2. Unique Constraint
+ 
+* **code** – Ensures no duplicate group/brand/category codes exist
+
+#### 3. Foreign Key Relationship
+
+* **Parent_id** – Ensure reference made to id itself in the table to define which parent this child code belongs to
+  and often used for brand-category relationship and Group-Subgroup Relationship
+
+#### 4. Check Constraint (type)
+
+* Ensures valid classification values only:
+
+  * `BRAND`
+  * `CATEGORY`
+  * `GROUP`
+  * `SUBGROUP`
+
+#### 5. Check Constraint (status)
+
+* Ensures valid status values only:
+
+  * `ACTIVE`
+  * `INACTIVE`
+  * `DELETED`
+    
+---
+
+### 📦 Data Integrity Rules – Product_Groups (Brief)
+
+* **Code is required & unique**
+  Each record must have a unique system-defined `code` following a consistent format.
+
+* **Meaningful description**
+  `code_desc` must clearly describe the code and cannot be empty for active records.
+
+* **Controlled type values**
+  `type` must only be one of: `BRAND`, `CATEGORY`, `GROUP`, `SUBGROUP`. No free-text allowed.
+
+* **Valid hierarchy structure**
+  If `parent_id` is used, it must reference an existing record in the same table and follow a valid hierarchy. Circular references are not allowed.
+
+* **Status control**
+  Only `ACTIVE`, `INACTIVE`, and `DELETED` are allowed. Deleted records must not be used in transactions.
+
+* **Soft delete rule**
+  Records should be logically deleted using `status = DELETED` instead of physical removal.
+
+* **Audit compliance**
+  `created_at` must be set on creation, and `updated_at` must be updated on every change.
+
+* **Cross-module consistency**
+  Codes must be reusable across all ERP modules without duplication or conflicting meanings.
+
+---
+
+### 🧩 Purpose in System
+
+The **PRODUCT_GROUPS** table serves as the central master data repository for all product classification structures in the system. It standardizes and manages hierarchical reference data such as groups, subgroups, brands, and categories, ensuring consistent product grouping across all ERP modules including sales, purchase, inventory, and reporting.
+
+---
+
+### 🧠 Product_Groups Table – SQL Server Implementation
+
+```sql
+CREATE TABLE product_groups (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    code_desc VARCHAR(50) NOT NULL,
+
+    type VARCHAR(20) NOT NULL
+        CHECK (group_type IN ('BRAND', 'CATEGORY', 'GROUP', 'SUBGROUP')),
+
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED')),
+
+    description VARCHAR(255) NULL,
+    parent_id INT NULL,
+
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+
+    CONSTRAINT fk_product_group_parent
+        FOREIGN KEY (parent_id) REFERENCES product_group(id)
+);
+```
+
+---
+
+
+
+

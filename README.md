@@ -917,6 +917,233 @@ CREATE TABLE suppliers (
 
 ---
 
+# 🏢 Customers – Company Master Data Design
+
+## 🧩 Purpose in System
+
+The **CUSTOMERS** table serves as the central master data repository for all company-level customers in the ERP system. It stores legally registered business clients, ensuring consistent handling of sales, invoicing, taxation (including TIN compliance), credit management, and multi-module integration across sales, accounts receivable, and reporting systems.
+
+---
+
+## Column Description
+
+### 🧾 Identification
+
+* **id** – Unique identifier for each customer record (Primary Key, auto-increment)
+* **customer_code** – Unique system-generated reference code for customer
+* **company_name** – Registered company name of the customer
+* **legal_name** – Official legal entity name (if different from trading name)
+* **registration_no** – Business registration number (SSM / ROC / equivalent)
+* **tin_no** – Tax Identification Number (mandatory for tax-compliant companies)
+
+---
+
+### 📊 Classification
+
+* **customer_type** – Type of customer (COMPANY, GOVERNMENT, DISTRIBUTOR, RETAIL)
+* **industry_type** – Industry sector classification (Manufacturing, IT, Retail, etc.)
+
+---
+
+### 📞 Contact Information (Primary)
+
+* **contact_person** – Main authorized contact person
+* **email** – Primary email address
+* **phone** – Primary contact number
+* **alternate_phone** – Secondary contact number
+* **website** – Company website URL
+
+---
+
+### 📍 Address Information
+
+* **address_line1** – Primary address line
+* **address_line2** – Secondary address line
+* **city** – City
+* **state** – State or region
+* **postcode** – Postal/ZIP code
+* **country** – Country
+
+---
+
+### 💰 Financial & Credit Control
+
+* **currency_code** – Default transaction currency (e.g., MYR, USD)
+* **payment_terms_days** – Credit payment terms in days
+* **credit_limit** – Maximum credit allowed for customer
+* **outstanding_balance** – Current unpaid balance
+* **tax_exempted** – Indicates if customer is tax exempt (BIT)
+
+---
+
+### 🏦 Billing Information
+
+* **billing_address_line1** – Billing address line 1
+* **billing_address_line2** – Billing address line 2
+* **billing_city** – Billing city
+* **billing_state** – Billing state
+* **billing_postcode** – Billing postal code
+* **billing_country** – Billing country
+
+---
+
+### ⚙️ Status & Control
+
+* **status** – Customer status (ACTIVE, INACTIVE, SUSPENDED, BLACKLISTED, DELETED)
+* **is_preferred** – Indicates preferred customer
+* **is_credit_allowed** – Indicates if credit sales are allowed
+
+---
+
+### 📊 Performance Metrics (ERP Intelligence)
+
+* **total_sales_amount** – Lifetime sales value
+* **average_order_value** – Average invoice value
+* **last_purchase_date** – Last transaction date
+* **customer_rating** – Internal rating (0–5)
+
+---
+
+### 🧾 Audit Fields
+
+* **created_at** – Record creation timestamp
+* **updated_at** – Last update timestamp
+
+---
+
+## 🔐 Constraints
+
+### 1. Primary Key
+
+* **id** – Uniquely identifies each customer record
+
+---
+
+### 2. Unique Constraints
+
+* **customer_code** – Ensures system-wide uniqueness
+* **registration_no** – Prevents duplicate company entries
+* **tin_no** – Ensures tax identity uniqueness
+
+---
+
+### 3. Check Constraint (status)
+
+Allowed values:
+
+* ACTIVE
+* INACTIVE
+* SUSPENDED
+* BLACKLISTED
+* DELETED
+
+---
+
+### 4. Check Constraint (customer_type)
+
+Allowed values:
+
+* COMPANY
+* GOVERNMENT
+* DISTRIBUTOR
+* RETAIL
+
+---
+
+## 📦 Data Integrity Rules – Customers (Brief)
+
+* **Customer code is mandatory & unique**
+  Every customer must have a system-generated unique identifier.
+
+* **TIN number is required for companies**
+  All registered business customers must provide a valid tax identification number.
+
+* **Company name is mandatory**
+  Customer must always have a legal or trading name for identification.
+
+* **Controlled classification values only**
+  `customer_type` and `status` must follow predefined allowed values.
+
+* **Financial integrity must be maintained**
+  Credit limit, outstanding balance, and payment terms must always be valid and non-negative.
+
+* **Soft delete rule applies**
+  Records must not be physically deleted; use `status = DELETED`.
+
+* **Audit fields required**
+  `created_at` and `updated_at` must always be maintained.
+
+* **Billing and tax compliance consistency**
+  Billing address and TIN must be consistent with legal entity details.
+
+---
+
+## 🧠 Purpose in System
+
+The **CUSTOMERS** table acts as the core enterprise entity for managing all B2B and institutional clients within the ERP system. It ensures standardized customer identification, tax compliance (including TIN tracking), credit control, billing management, and transactional consistency across sales, invoicing, and financial reporting modules.
+
+---
+
+## 🧠 SQL Server Implementation
+
+```sql id="k3c9pq"
+CREATE TABLE customers (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+
+    customer_code VARCHAR(50) NOT NULL UNIQUE,
+    company_name VARCHAR(255) NOT NULL,
+    legal_name VARCHAR(255) NULL,
+    registration_no VARCHAR(100) NULL,
+    tin_no VARCHAR(100) NOT NULL UNIQUE,
+
+    customer_type VARCHAR(20) NOT NULL
+        CHECK (customer_type IN ('COMPANY', 'GOVERNMENT', 'DISTRIBUTOR', 'RETAIL')),
+
+    industry_type VARCHAR(100) NULL,
+
+    contact_person VARCHAR(150) NULL,
+    email VARCHAR(150) NULL,
+    phone VARCHAR(30) NULL,
+    alternate_phone VARCHAR(30) NULL,
+    website VARCHAR(255) NULL,
+
+    address_line1 VARCHAR(255) NULL,
+    address_line2 VARCHAR(255) NULL,
+    city VARCHAR(100) NULL,
+    state VARCHAR(100) NULL,
+    postcode VARCHAR(20) NULL,
+    country VARCHAR(100) NULL,
+
+    billing_address_line1 VARCHAR(255) NULL,
+    billing_address_line2 VARCHAR(255) NULL,
+    billing_city VARCHAR(100) NULL,
+    billing_state VARCHAR(100) NULL,
+    billing_postcode VARCHAR(20) NULL,
+    billing_country VARCHAR(100) NULL,
+
+    currency_code VARCHAR(10) NOT NULL DEFAULT 'MYR',
+    payment_terms_days INT NOT NULL DEFAULT 30,
+    credit_limit DECIMAL(18,2) NOT NULL DEFAULT 0,
+    outstanding_balance DECIMAL(18,2) NOT NULL DEFAULT 0,
+    tax_exempted BIT NOT NULL DEFAULT 0,
+    is_credit_allowed BIT NOT NULL DEFAULT 1,
+
+    total_sales_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    average_order_value DECIMAL(18,2) NOT NULL DEFAULT 0,
+    last_purchase_date DATETIME NULL,
+    customer_rating DECIMAL(3,2) NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'BLACKLISTED', 'DELETED')),
+
+    is_preferred BIT NOT NULL DEFAULT 0,
+
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+```
+
+---
 
 
 

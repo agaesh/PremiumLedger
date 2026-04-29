@@ -912,8 +912,11 @@ CREATE TABLE suppliers (
     is_preferred BIT NOT NULL DEFAULT 0,
     is_local_supplier BIT NOT NULL DEFAULT 1,
     internal_notes VARCHAR(255) NULL,
+    gl_id INT(20) NULL
     created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    updated_at DATETIME DEFAULT GETDATE,
+    --Ensure Acc_Charts Table has been create before including this foreign key relationshipt
+   	CONSTRAINT fk_gl_acc_charts FOREIGN KEY (gl_id) REFERENCES acc_charts(id)
 );
 ```
 
@@ -992,7 +995,6 @@ The **CUSTOMERS** table serves as the central master data repository for all com
 ### ⚙️ Status & Control
 
 * **status** – Customer status (ACTIVE, INACTIVE, SUSPENDED, BLACKLISTED, DELETED)
-* **is_preferred** – Indicates preferred customer
 * **is_credit_allowed** – Indicates if credit sales are allowed
 
 ---
@@ -1143,15 +1145,111 @@ CREATE TABLE customers (
 
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'BLACKLISTED', 'DELETED')),
-
-    is_preferred BIT NOT NULL DEFAULT 0,
     internal_notes VARCHAR(500) NULL,
     created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE()
+    updated_at DATETIME DEFAULT GETDATE(),
 );
+
 ```
 
 ---
+
+# 📘 Chart of Accounts (acc_charts) – Database Design Documentation
+
+## 📌 Table Purpose
+
+The `acc_charts` table is the **core structure of the Chart of Accounts (COA)** module.
+It stores all financial accounts used in the ERP system such as Assets, Liabilities, Equity, Income, and Expenses.
+
+This table supports a **hierarchical account structure**, allowing parent-child relationships between accounts.
+
+---
+
+## 🧱 Table Structure
+
+### Table Name: `acc_charts`
+
+| Column              | Data Type    | Constraints                        | Description                                                         |
+| ------------------- | ------------ | ---------------------------------- | ------------------------------------------------------------------- |
+| `id`                | INT          | PRIMARY KEY, IDENTITY(1,1)         | Unique identifier for each account                                  |
+| `account_code`      | VARCHAR(20)  | NOT NULL                           | Unique business code for account (e.g., 1000, 2000)                 |
+| `account_name`      | VARCHAR(100) | NOT NULL                           | Name of the account (e.g., Cash, Sales Revenue)                     |
+| `account_type`      | VARCHAR(20)  | NOT NULL, CHECK constraint         | Defines account category: ASSET, LIABILITY, EQUITY, INCOME, EXPENSE |
+| `parent_account_id` | INT          | NULL, FOREIGN KEY → acc_charts(id) | Supports hierarchical structure (sub-accounts)                      |
+| `status`            | VARCHAR(20)  | DEFAULT 'ACTIVE', CHECK            | Account status: ACTIVE, INACTIVE, DELETED                           |
+| `created_at`        | DATETIME     | DEFAULT GETDATE()                  | Record creation timestamp                                           |
+| `updated_at`        | DATETIME     | DEFAULT GETDATE()                  | Last update timestamp                                               |
+
+---
+
+## 🔗 Relationships
+
+### Self-Referencing Relationship (Hierarchy)
+
+* `parent_account_id` → references `acc_charts(id)`
+* This enables **multi-level chart of accounts structure**
+
+### Example:
+
+* ASSET (Parent)
+
+  * CURRENT ASSETS
+
+    * CASH
+    * BANK
+
+---
+
+## ⚙️ Business Rules
+
+* Each account must have a valid `account_type`
+* Account codes are used for reporting and ledger mapping
+* Parent-child relationship is optional (NULL allowed for top-level accounts)
+* Accounts can be soft-managed using `status` instead of deletion
+* System supports **recursive structure (tree hierarchy)**
+
+---
+
+## 🧠 Design Notes (DBA Perspective)
+
+### 1. Normalization
+
+* Table is in **3NF (Third Normal Form)**
+* No repeating groups
+* No derived dependencies
+* Hierarchical dependency handled via self FK
+
+### 2. Flexibility
+
+* Supports unlimited nesting levels
+* Allows dynamic COA structure per company setup
+
+### 3. Data Integrity
+
+* Enforced using:
+
+  * CHECK constraints (account_type, status)
+  * FOREIGN KEY (parent-child integrity)
+
+---
+
+## 📊 Usage in ERP System
+
+This table is used in:
+
+* General Ledger postings
+* Financial reporting (Balance Sheet, P&L)
+* Supplier/Customer mapping (optional GL linkage)
+* Accounting transactions (Dr/Cr mapping)
+
+---
+
+## 🚀 Summary
+
+The `acc_charts` table is the **foundation of the ERP accounting module**, enabling structured financial classification with full hierarchical support and strict data integrity rules.
+
+---
+
 
 
 

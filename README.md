@@ -71,6 +71,7 @@ This system models real-world business processes using a **database-first approa
 * Product_Groups
 * Suppliers
 * Customers
+* Product_UOM
 * Orders
 * OrderDetails
 * Purchases
@@ -616,9 +617,9 @@ CREATE TABLE Products (
 );
 
 ```
-## Product_Groups - For Storing Group Code, Sub Group Code, Brand Code, Category Code
+## Product_Metadata - For Storing Group Code, Sub Group Code, Brand Code, Category Code, UOM cODE
 
-This **Product_Groups** table is used for storing hierarchical and classification master data such as **group_code, subgroup_code, brand_code, category_code**, and other reusable reference codes used across the ERP system.
+This **Product_Metadata** table is used for storing hierarchical and classification master data such as **group_code, subgroup_code, brand_code, category_code**, and other reusable reference codes used across the ERP system.
 
 It acts as a **unified master table for product classification and grouping structure**, supporting flexible hierarchy through parent-child relationships.
 
@@ -661,6 +662,7 @@ It acts as a **unified master table for product classification and grouping stru
   * `CATEGORY`
   * `GROUP`
   * `SUBGROUP`
+  * `SUBGROUP`
 
 #### 5. Check Constraint (status)
 
@@ -702,19 +704,19 @@ It acts as a **unified master table for product classification and grouping stru
 
 ### 🧩 Purpose in System
 
-The **PRODUCT_GROUPS** table serves as the central master data repository for all product classification structures in the system. It standardizes and manages hierarchical reference data such as groups, subgroups, brands, and categories, ensuring consistent product grouping across all ERP modules including sales, purchase, inventory, and reporting.
+The **PRODUCT_Metadata** table serves as the central master data repository for all product classification structures in the system. It standardizes and manages hierarchical reference data such as groups, subgroups, brands, categories and UOMS, ensuring consistent product grouping across all ERP modules including sales, purchase, inventory, and reporting.
 
 ---
 
-### 🧠 Product_Groups Table – SQL Server Implementation
+### 🧠 Product_Metadata Table – SQL Server Implementation
 
 ```sql
-CREATE TABLE product_groups (
+CREATE TABLE product_metadata (
     id INT IDENTITY(1,1) PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     code_desc VARCHAR(50) NOT NULL,
     type VARCHAR(20) NOT NULL
-        CHECK (type IN ('BRAND', 'CATEGORY', 'GROUP', 'SUBGROUP')),
+        CHECK (type IN ('BRAND', 'CATEGORY', 'GROUP', 'SUBGROUP', 'UOM')),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'INACTIVE', 'DELETED')),
     description VARCHAR(255) NULL,
@@ -722,7 +724,7 @@ CREATE TABLE product_groups (
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
     CONSTRAINT fk_product_group_parent
-        FOREIGN KEY (parent_id) REFERENCES product_groups(id)
+        FOREIGN KEY (parent_id) REFERENCES product_metadata(id)
 );
 ```
 
@@ -1247,6 +1249,160 @@ This table is used in:
 ## 🚀 Summary
 
 The `acc_charts` table is the **foundation of the ERP accounting module**, enabling structured financial classification with full hierarchical support and strict data integrity rules.
+
+---
+
+Agaesh, this table is actually one of the **most important ERP design pieces** because it controls how inventory quantities are standardized. Here’s clean, professional documentation you can directly paste into your project.
+
+---
+
+# 📦 Product UOM (Unit of Measurement) – Database Design Documentation
+
+## 📌 Table Purpose
+
+The `product_uom` table is used to manage **multiple units of measurement (UOM)** for a single product in the ERP system.
+
+It allows a product to be transacted in different units (e.g., box, pack, kg, pcs) while maintaining a **standard base unit for internal consistency and inventory calculations**.
+
+This ensures that all stock, sales, and purchase operations can be accurately converted into a single reference unit.
+
+---
+
+## 🧱 Table Structure
+
+### Table Name: `product_uom`
+
+| Column              | Data Type     | Constraints                          | Description                              |
+| ------------------- | ------------- | ------------------------------------ | ---------------------------------------- |
+| `id`                | INT           | PRIMARY KEY, IDENTITY(1,1)           | Unique identifier for each UOM record    |
+| `product_id`        | INT           | NOT NULL, FOREIGN KEY → Products(id) | Links UOM to a specific product          |
+| `uom`               | VARCHAR(20)   | NOT NULL                             | Unit of measurement (e.g., PCS, BOX, KG) |
+| `conversion_factor` | DECIMAL(18,6) | NOT NULL DEFAULT 1                   | Conversion rate to base UOM              |
+| `is_base_uom`       | BIT           | NOT NULL DEFAULT 0                   | Indicates if this UOM is the base unit   |
+| `created_at`        | DATETIME      | DEFAULT GETDATE()                    | Record creation timestamp                |
+| `updated_at`        | DATETIME      | DEFAULT GETDATE()                    | Last update timestamp                    |
+
+---
+
+## 🔗 Relationships
+
+### 1. Product Relationship
+
+* **product_uom.product_id → Products.id**
+* Type: **Many-to-One**
+* One product can have multiple UOM definitions
+
+---
+
+## 🧠 Business Logic
+
+### 1. Base Unit Concept
+
+Each product must have **one primary base UOM**, which acts as the internal standard for:
+
+* Inventory tracking
+* Stock valuation
+* Accounting entries
+
+Example:
+
+* 1 BOX = 12 PCS
+* Base UOM = PCS
+* Conversion factor for BOX = 12
+
+---
+
+### 2. Conversion Mechanism
+
+The `conversion_factor` is used to convert any UOM into the base unit.
+
+#### Example:
+
+If base UOM = PCS
+
+| UOM  | Conversion Factor | Meaning        |
+| ---- | ----------------- | -------------- |
+| PCS  | 1                 | Base unit      |
+| BOX  | 12                | 1 BOX = 12 PCS |
+| PACK | 6                 | 1 PACK = 6 PCS |
+
+---
+
+### 3. Base UOM Rule
+
+* Only **one record per product** should have `is_base_uom = 1`
+* Base UOM must always have `conversion_factor = 1`
+
+---
+
+### 4. Data Integrity Rules
+
+* Each product must have at least **one UOM (base UOM required)**
+* `uom` must be unique per product
+* Conversion factor must always be > 0
+* Base UOM cannot be duplicated
+
+---
+
+## 🔐 Constraints
+
+### 1. Primary Key
+
+* `id` uniquely identifies each UOM record
+
+### 2. Foreign Key
+
+* Ensures product exists before assigning UOM
+
+```sql
+FOREIGN KEY (product_id) REFERENCES Products(id)
+```
+
+### 3. Unique Constraint
+
+* Prevents duplicate UOMs for same product
+
+```sql
+UNIQUE (product_id, uom)
+```
+
+---
+
+## ⚙️ System Usage
+
+The `product_uom` table is used in:
+
+* 📦 Inventory stock calculations
+* 🧾 Sales order quantity conversion
+* 🛒 Purchase order unit handling
+* 📊 Stock valuation reports
+* 🔄 Unit conversion during transactions
+
+---
+
+## 🧩 Example Scenario
+
+Product: Rice
+
+| UOM | Conversion Factor | Base |
+| --- | ----------------- | ---- |
+| KG  | 1                 | ✔    |
+| BAG | 10                | ❌    |
+
+If customer buys:
+
+* 2 BAG → system converts to 20 KG internally
+
+---
+
+## 🚀 Summary
+
+The `product_uom` table ensures:
+
+* Flexible multi-unit selling
+* Accurate inventory conversion
+* Standardized stock tracking using base UOM
+* ERP-level consistency across sales, purchase, and inventory modules
 
 ---
 

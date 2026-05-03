@@ -711,7 +711,7 @@ The **PRODUCT_Metadata** table serves as the central master data repository for 
 ### 🧠 Product_Metadata Table – SQL Server Implementation
 
 ```sql
-CREATE TABLE product_metadata (
+CREATE TABLE Product_Metadata (
     id INT IDENTITY(1,1) PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     code_desc VARCHAR(50) NOT NULL,
@@ -724,7 +724,7 @@ CREATE TABLE product_metadata (
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
     CONSTRAINT fk_product_group_parent
-        FOREIGN KEY (parent_id) REFERENCES product_metadata(id)
+        FOREIGN KEY (parent_id) REFERENCES Product_Metadata(id)
 );
 ```
 
@@ -1406,6 +1406,564 @@ The `product_uom` table ensures:
 
 ---
 
+# Overview Of Billing System Database Table
+
+Stores all business documents such as:
+
+* Sales Order (SO)
+* Purchase Order (PO)
+* Invoice (INV)
+* Credit Note (CN)
+* Debit Note (DN)
+* Goods Received Note (GRN) - GRN Header Created in Stock Header And its details stored in Stock Detail
+
+### Key Features:
+
+* Central document tracking
+* Supports workflow chaining via reference links
+* Maintains status lifecycle
+* Branch-level segregation
+
+### Key Fields:
+
+* `doc_no` → Unique document identifier
+* `doc_type` → Type of transaction (SO, PO, INV, etc.)
+* `doc_category` → Business module classification
+* `doc_status` → Lifecycle state (DRAFT, POSTED, VOID)
+* `doc_state` → Business completion state (OPEN, CLOSED, PARTIAL)
+* `reference_doc_id` → Links related documents (SO → INV → CN)
+
+### Integrity Features:
+
+* Unique document numbering
+* Row versioning for concurrency control
+* Soft delete support (`is_deleted`)
+
+---
+
+## 💰 3.2 Bill_Headers (Financial Layer)
+
+### Purpose:
+
+Represents financial summary of a document after processing.
+
+### Relationship:
+
+* Directly linked to `Documents (1:1)`
+
+### Key Features:
+
+* Stores billing totals (net, tax, gross)
+* Supports multi-currency transactions
+* Vendor/Customer mapping
+* Financial aggregation layer
+
+### Key Fields:
+
+* `doc_id` → Links to Documents
+* `vendor_id` / `customer_id` → Business partner reference
+* `currency_code` → Transaction currency
+* `Bill_Date`  → To Store Billed Date
+* `Due_Date`  → Show How Much days are in due
+* `exchange_rate` → Currency conversion factor
+* `total_amount`, `tax_amount`, `net_amount` → Financial summary
+
+
+### SQL IMPLEMENTATION
+
+```sql
+
+CREATE TABLE Bill_Headers (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    doc_id INT NOT NULL UNIQUE,
+    vendor_id INT NULL,
+    customer_id INT NULL,
+    bill_date DATETIME NOT NULL DEFAULT GETDATE(),
+    due_date DATETIME NULL,
+    currency_code VARCHAR(10) NOT NULL DEFAULT 'MYR',
+    exchange_rate DECIMAL(18,6) NOT NULL DEFAULT 1,
+    total_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    tax_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    net_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    row_version ROWVERSION,
+    CONSTRAINT FK_BillHeaders_Documents
+        FOREIGN KEY (doc_id) REFERENCES Documents(id)
+);
+
+```
+
+---
+
+## 🧾 3.3 Tax (Master Data)
+
+### Purpose:
+
+Defines tax rules applied to transactions.
+
+### Features:
+
+* Supports GST / SST classification
+* Stores tax rate at master level
+* Used during invoice and billing calculations
+
+### Key Fields:
+
+* `tax_code` → Business tax identifier
+* `tax_rate` → Percentage value
+* `is_gst`, `is_sst` → Tax type flags
+
+### SQL IMPLEMENTATION
+
+```sql
+CREATE TABLE TAX(
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    tax_code VARCHAR(20) NOT NULL UNIQUE,
+    description VARCHAR(255) NULL,
+    tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
+    is_gst BIT NOT NULL DEFAULT 0,
+    is_sst BIT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+```
+
+---
+
+## 📄 3.4 Bill_Details (Transaction Line Layer)
+
+### Purpose:
+
+Stores line-item level details for billing transactions.
+
+### Relationship:
+
+* Linked to `Documents (Many-to-One)`
+
+### Key Features:
+
+* Line-level breakdown of invoice/PO/SO
+* Supports product + accounting mapping
+* Stores tax snapshot at transaction time
+* Handles unit conversion (base vs transaction UOM)
+
+### Key Fields:
+
+* `line_no` → Order of item in document
+* `product_id` → Item reference
+* `gl_id` → Accounting ledger mapping
+* `quantity`, `unit_price` → Transaction values
+* `tax_rate` → Frozen tax rate at transaction time
+* `base_uom` → To Record Trasacntion level BASE UOM
+* `transaction_uom` → To Record Trasacntion level multi UOM, If multi uom not exist. it is same to base uom 
+* `line_subtotal ` → To Record subtotal with no gst
+* `tax_amount` → this field intended to record tax amount without pricinipal amount
+* `line_total` → Final computed value with tax amount
+* `Row Vesion` →  ROWVERSION (formerly TIMESTAMP) is a binary auto-updated version marker
+
+### SQL IMPLEMENTATION
+
+```sql
+CREATE TABLE Bill_Details (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+
+    doc_id INT NOT NULL,
+
+    line_no INT NOT NULL,
+
+    product_id INT NOT NULL,
+    gl_id INT NOT NULL,
+
+    quantity DECIMAL(18,3) NOT NULL DEFAULT 1,
+    unit_price DECIMAL(18,2) NOT NULL DEFAULT 0,
+    discount_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+
+    tax_id INT NULL,
+
+    tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0,
+
+    base_uom VARCHAR(20) NOT NULL,
+    transaction_uom VARCHAR(20) NOT NULL,
+
+    line_sub_total DECIMAL(18,2) NOT NULL DEFAULT 0,
+    tax_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    line_total DECIMAL(18,2) NOT NULL DEFAULT 0,
+
+    created_at DATETIME DEFAULT GETDATE(),
+
+    row_version ROWVERSION,
+
+    CONSTRAINT FK_BillDetails_Documents
+        FOREIGN KEY (doc_id) REFERENCES Documents(id),
+
+    CONSTRAINT FK_BillDetails_Tax
+        FOREIGN KEY (tax_id) REFERENCES Tax(id)
+);
+```
+
+### Calculation Strategy:
+
+All financial calculations are handled at application level and stored to ensure:
+
+* Performance optimization
+* Historical accuracy
+* Audit consistency
+
+---
+
+# 🔗 4. Document Flow Design
+
+The system supports a **chain-based document workflow model**:
+
+### Example Flow:
+
+```
+Sales Order (SO)
+      ↓
+Invoice (INV)
+      ↓
+Credit Note (CN)
+```
+
+or
+
+```
+Purchase Order (PO)
+      ↓
+Goods Received Note (GRN)
+      ↓
+Purchase Invoice (INV)
+```
+
+### Implementation:
+
+* `Documents.reference_doc_id` maintains linkage
+* `reference_type` defines relationship type
+
+---
+Got it — you only want **clean 3-way matching queries for PO, GRN, and Invoice (no extra theory).** Here’s a **production-style set of SQL Server queries** based on your model.
+
+---
+
+# 5. 🧠 3-WAY MATCHING CORE (PO – GRN – INVOICE)
+
+Assumptions:
+
+* PO = Purchase Order (`Documents + Bill_Details`)
+* GRN = Stock receipt (`Stock_Detail`)
+* INV = Purchase Invoice (`Bill_Details` or Invoice table via Documents)
+
+---
+
+## 📦 1. PO vs GRN vs INVOICE (FULL MATCH VIEW)
+
+```sql id="po3wm1"
+SELECT 
+    po.doc_no AS PO_No,
+    d.product_id,
+
+    SUM(d.quantity) AS po_qty,
+
+    ISNULL(SUM(grn.quantity_in), 0) AS received_qty,
+
+    ISNULL(SUM(inv.quantity), 0) AS invoiced_qty,
+
+    (SUM(d.quantity) - ISNULL(SUM(grn.quantity_in), 0)) AS pending_receipt_qty,
+
+    (ISNULL(SUM(grn.quantity_in), 0) - ISNULL(SUM(inv.quantity), 0)) AS pending_invoice_qty
+
+FROM Documents po
+JOIN Bill_Details d 
+    ON d.doc_id = po.id
+
+LEFT JOIN Stock_Detail grn 
+    ON grn.product_id = d.product_id
+
+LEFT JOIN Documents grn_doc 
+    ON grn.doc_id = grn_doc.id 
+    AND grn_doc.doc_type = 'GRN'
+
+LEFT JOIN Bill_Details inv 
+    ON inv.product_id = d.product_id
+
+LEFT JOIN Documents inv_doc 
+    ON inv.doc_id = inv_doc.id 
+    AND inv_doc.doc_type = 'INV'
+
+WHERE po.doc_type = 'PO'
+
+GROUP BY po.doc_no, d.product_id;
+```
+
+---
+
+## 📥 2. PO → GRN MATCH ONLY (RECEIVING CONTROL)
+
+```sql id="po3wm2"
+SELECT 
+    po.doc_no AS PO_No,
+    d.product_id,
+    d.quantity AS po_qty,
+    ISNULL(SUM(grn.quantity_in), 0) AS received_qty,
+    (d.quantity - ISNULL(SUM(grn.quantity_in), 0)) AS balance_qty
+
+FROM Documents po
+JOIN Bill_Details d 
+    ON d.doc_id = po.id
+
+LEFT JOIN Stock_Detail grn 
+    ON grn.product_id = d.product_id
+
+LEFT JOIN Documents grn_doc 
+    ON grn.doc_id = grn_doc.id 
+    AND grn_doc.doc_type = 'GRN'
+
+WHERE po.doc_type = 'PO'
+
+GROUP BY po.doc_no, d.product_id, d.quantity;
+```
+
+---
+
+## 🧾 3. PO → INVOICE MATCH ONLY (FINANCIAL CONTROL)
+
+```sql id="po3wm3"
+SELECT 
+    po.doc_no AS PO_No,
+    d.product_id,
+    d.quantity AS po_qty,
+
+    ISNULL(SUM(inv.quantity), 0) AS invoiced_qty,
+
+    (d.quantity - ISNULL(SUM(inv.quantity), 0)) AS balance_invoice_qty
+
+FROM Documents po
+JOIN Bill_Details d 
+    ON d.doc_id = po.id
+
+LEFT JOIN Bill_Details inv 
+    ON inv.product_id = d.product_id
+
+LEFT JOIN Documents inv_doc 
+    ON inv.doc_id = inv_doc.id 
+    AND inv_doc.doc_type = 'INV'
+
+WHERE po.doc_type = 'PO'
+
+GROUP BY po.doc_no, d.product_id, d.quantity;
+```
+
+---
+
+## 📦 4. GRN vs INVOICE (REAL 3-WAY CONTROL CHECK)
+
+👉 This is the **most important ERP validation query**
+
+```sql id="po3wm4"
+SELECT 
+    grn_doc.doc_no AS GRN_No,
+    sd.product_id,
+
+    SUM(sd.quantity_in) AS received_qty,
+    ISNULL(SUM(inv.quantity), 0) AS invoiced_qty,
+
+    (SUM(sd.quantity_in) - ISNULL(SUM(inv.quantity), 0)) AS invoice_pending_qty
+
+FROM Stock_Detail sd
+
+JOIN Documents grn_doc 
+    ON sd.doc_id = grn_doc.id 
+    AND grn_doc.doc_type = 'GRN'
+
+LEFT JOIN Bill_Details inv 
+    ON inv.product_id = sd.product_id
+
+LEFT JOIN Documents inv_doc 
+    ON inv.doc_id = inv_doc.id 
+    AND inv_doc.doc_type = 'INV'
+
+GROUP BY grn_doc.doc_no, sd.product_id;
+```
+
+---
+
+## ⚠️ 5. BLOCK OVER-INVOICE CHECK (CONTROL QUERY)
+
+```sql id="po3wm5"
+SELECT 
+    po.doc_no,
+    d.product_id,
+    d.quantity AS po_qty,
+
+    ISNULL(SUM(grn.quantity_in),0) AS received_qty,
+    ISNULL(SUM(inv.quantity),0) AS invoiced_qty,
+
+    CASE 
+        WHEN SUM(inv.quantity) > SUM(grn.quantity_in) 
+        THEN 'OVER INVOICED'
+        ELSE 'OK'
+    END AS status
+
+FROM Documents po
+JOIN Bill_Details d 
+    ON d.doc_id = po.id
+
+LEFT JOIN Stock_Detail grn 
+    ON grn.product_id = d.product_id
+
+LEFT JOIN Bill_Details inv 
+    ON inv.product_id = d.product_id
+
+WHERE po.doc_type = 'PO'
+
+GROUP BY po.doc_no, d.product_id, d.quantity;
+```
+
+---
+
+## 📊 6. FINAL ERP SUMMARY VIEW (ALL IN ONE)
+
+```sql id="po3wm6"
+SELECT 
+    po.doc_no AS PO_No,
+    d.product_id,
+
+    d.quantity AS ordered_qty,
+
+    ISNULL(SUM(grn.quantity_in),0) AS received_qty,
+    ISNULL(SUM(inv.quantity),0) AS invoiced_qty,
+
+    (d.quantity - ISNULL(SUM(grn.quantity_in),0)) AS pending_receive,
+    (ISNULL(SUM(grn.quantity_in),0) - ISNULL(SUM(inv.quantity),0)) AS pending_invoice
+
+FROM Documents po
+JOIN Bill_Details d 
+    ON d.doc_id = po.id
+
+LEFT JOIN Stock_Detail grn 
+    ON grn.product_id = d.product_id
+
+LEFT JOIN Bill_Details inv 
+    ON inv.product_id = d.product_id
+
+WHERE po.doc_type = 'PO'
+
+GROUP BY po.doc_no, d.product_id, d.quantity;
+```
+
+---
+
+## 6. 🧠 FINAL NOTE (VERY IMPORTANT ERP LOGIC)
+
+Your system now supports:
+
+✔ PO control (demand)
+✔ GRN control (physical receipt)
+✔ Invoice control (financial settlement)
+✔ Full reconciliation layer
+
+---
+
+# 🔐 6. Data Integrity Strategy
+
+The system enforces integrity using:
+
+### ✔ Primary Keys
+
+Each table has a unique identity key.
+
+### ✔ Foreign Keys
+
+* Bill_Headers → Documents
+* Bill_Details → Documents, Tax
+
+### ✔ Constraints
+
+* Document status validation
+* State enforcement (OPEN/CLOSED/PARTIAL)
+* Tax validity rules
+
+### ✔ Row Versioning
+
+* `ROWVERSION` ensures concurrency control
+* Prevents overwrite conflicts in multi-user environments
+
+---
+
+# ⚙️ 7. Performance Optimization
+
+To ensure scalability, the system includes:
+
+### Indexed Fields:
+
+* `Documents(doc_type, doc_date)`
+* `Documents(branch_code)`
+* `Bill_Details(doc_id)`
+* `Bill_Headers(vendor_id, customer_id)`
+
+### Benefits:
+
+* Faster reporting queries
+* Efficient document filtering
+* Improved join performance
+
+---
+
+# 📊 8. Financial Design Principle
+
+The system follows a **non-redundant calculation strategy**:
+
+* Financial totals are stored for performance
+* Tax rates are frozen per transaction for audit consistency
+* GL mapping is maintained at line level
+
+---
+
+# 🧠 9. Design Strengths
+
+✔ Modular ERP structure
+✔ Strong document centralization
+✔ Audit-friendly architecture
+✔ Scalable relational design
+✔ Clear separation of concerns
+✔ Ready for accounting expansion
+
+---
+
+# ⚠️ 10. Future Enhancements (Recommended)
+
+To evolve into enterprise-grade ERP:
+
+### 🔹 Accounting Engine
+
+* Journal Entries
+* Debit/Credit posting system
+* Ledger balancing
+
+### 🔹 Inventory Module
+
+* Stock movement tracking
+* Warehouse management
+* FIFO/LIFO support
+
+### 🔹 Workflow Engine
+
+* Approval flows
+* Role-based document transitions
+
+### 🔹 Event Logging
+
+* Full audit trail system
+* Change history tracking
+
+---
+
+# 🏁 11. Conclusion
+
+The **PrimeLedger ERP database design** provides a strong foundation for a modern enterprise system by centralizing transaction control, enforcing relational integrity, and supporting scalable financial operations.
+
+It is designed to evolve from a transactional system into a **full enterprise-grade ERP platform with accounting and inventory capabilities.**
 
 
 

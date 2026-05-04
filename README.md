@@ -26,7 +26,7 @@ This system models real-world business processes using a **database-first approa
 
 * **User Management** – Handles authentication and access control
 * **Company Management** – Supports multi-company structure
-* **Inventory Management** – Tracks products and stock levels
+* **Inventory Management** – Tracks products and stock levels (Stock Levels not high priority for now)
 * **Sales Management** – Manages orders and transactions
 * **Supplier & Purchase** – Handles suppliers and procurement
 
@@ -79,18 +79,97 @@ This system models real-world business processes using a **database-first approa
   
 ---
 
-## **🔗 Key Relationships**
+Your instinct is right — the **initial “Key Relationships” section is too generic and slightly inconsistent** with your final architecture (Documents + Bill layer + tenant isolation).
 
-* Users → Company
-* Orders → Users
-* OrderDetails → Orders
-* OrderDetails → Products
-* Products → Suppliers
-* Purchases → Suppliers
-* Purchases → Users
-* PurchaseDetails → Purchases
-* PurchaseDetails → Products
+Some links like `Orders` and `Purchases` are now **abstracted into Documents**, so keeping them creates confusion and weakens your design clarity.
 
+Here’s the **clean, corrected, production-level relationship section** 👇
+
+---
+
+# 🔗 **Key Relationships (Updated & Aligned with Final Design)**
+
+### 👤 User & Company
+
+* **Users → Company**
+  *Type: Many-to-One*
+  Each user belongs to a single company (tenant isolation)
+
+---
+
+### 🏢 Multi-Tenant Control (Central DB)
+
+* **Company → CompanyDatabase**
+  *Type: One-to-One*
+  Each company is mapped to exactly one tenant database
+
+---
+
+### 📦 Product Domain
+
+* **Products → Product_Metadata (Brand/Category/Group)**
+  *Type: Many-to-One*
+  Products are classified using reusable metadata
+
+* **Products → Suppliers**
+  *Type: Many-to-One*
+  Each product is associated with a supplier
+
+* **Product_UOM → Products**
+  *Type: Many-to-One*
+  A product can have multiple units of measurement
+
+---
+
+### 🧾 Document Engine (CORE ERP)
+
+* **Documents → Documents (Self Reference)**
+  *Type: One-to-Many*
+  Enables document flow (PO → GRN → INV → CN)
+
+---
+
+### 💰 Billing Layer
+
+* **Bill_Headers → Documents**
+  *Type: One-to-One*
+  Each document has one financial summary
+
+* **Bill_Details → Documents**
+  *Type: Many-to-One*
+  Each document contains multiple line items
+
+* **Bill_Details → Tax**
+  *Type: Many-to-One*
+  Each line item may have a tax rule applied
+
+---
+
+### 📊 Accounting Integration
+
+* **Bill_Details → acc_charts**
+  *Type: Many-to-One*
+  Each transaction line is mapped to a GL account
+
+---
+
+### 📦 Inventory / GRN Layer
+
+* **Stock_Detail → Documents (GRN)**
+  *Type: Many-to-One*
+  Stock entries are tied to GRN documents
+
+---
+
+### 🧑‍🤝‍🧑 Business Partners
+
+* **Bill_Headers → Suppliers**
+  *Type: Many-to-One*
+  Used for purchase-related transactions
+
+* **Bill_Headers → Customers**
+  *Type: Many-to-One*
+  Used for sales-related transactions
 ---
 
 ## **🚀 Getting Started**

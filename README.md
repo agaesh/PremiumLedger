@@ -72,10 +72,11 @@ This system models real-world business processes using a **database-first approa
 * Suppliers
 * Customers
 * Product_UOM
-* Orders
-* OrderDetails
-* Purchases
-* PurchasesDetails
+* Documents
+* Bill_Headers
+* Tax
+* Bill_Details
+  
   
 ---
 
@@ -1499,16 +1500,58 @@ Stores all business documents such as:
 
 * `doc_no` → Unique document identifier
 * `doc_type` → Type of transaction (SO, PO, INV, etc.)
-* `doc_category` → Business module classification
+* `branch_code` for storing the document belong to which branch
+* `doc_date` to store the date document have been issued.
+* `posting)date` to store the posted date of the document.
+* 
 * `doc_status` → Lifecycle state (DRAFT, POSTED, VOID)
 * `doc_state` → Business completion state (OPEN, CLOSED, PARTIAL)
-* `reference_doc_id` → Links related documents (SO → INV → CN)
-
+* `ref_id` → Links related documents (SO → INV → CN)
+* `ref_type` → Ref_type talks about document type of the document that current document referred to
+* `remarks` → To Store the document remark the header remark of the document
+* `created_at`, `created_by` → To Store the created date of document and who created this
+* `updated_at`, `updated_by` → To Store the documentent updated time and who updated it.
+* `updated_at` → To Store the documentent updated time and who updated it.
+* `is_deleted` → To Store the bit that describes whether this document deleted or not.
+  
 ### Integrity Features:
 
 * Unique document numbering
 * Row versioning for concurrency control
 * Soft delete support (`is_deleted`)
+
+---
+
+### SQL IMPLEMENTATION
+
+```sql
+CREATE TABLE documents (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    doc_no VARCHAR(30) NOT NULL UNIQUE,
+    doc_type VARCHAR(20) NOT NULL,
+    -- SO, PO, INV, CN, DN, GRN, ADJ, etc.
+    branch_code VARCHAR(20) NOT NULL,
+    -- Example: JB01, KL02, SG01
+    -- Represents owning branch of this document
+    doc_date DATETIME NOT NULL DEFAULT GETDATE(),
+    posting_date DATETIME NULL,
+    doc_status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+    CHECK (doc_status IN ('DRAFT', 'POSTED', 'CANCELLED', 'VOID')),
+    doc_stat2 VARCHAR(20) NOT NULL DEFAULT 'OPEN'
+    check (doc_stat2 IN ('OPEN', 'CLOSED', 'PARTIAL')),
+    partner_id INT NULL,
+    -- customer or supplier unified
+    ref_id INT NULL,
+    -- link SO → INV → CN etc.
+    ref_type VARCHAR(10) NULL,
+    remarks VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT GETDATE(),
+    created_by INT NULL,
+    updated_at DATETIME NULL,
+    updated_by INT NULL,
+    is_deleted BIT NOT NULL DEFAULT 0
+);
+```
 
 ---
 
@@ -1547,8 +1590,8 @@ Represents financial summary of a document after processing.
 CREATE TABLE Bill_Headers (
     id INT IDENTITY(1,1) PRIMARY KEY,
     doc_id INT NOT NULL UNIQUE,
-    vendor_id INT NULL,
-    customer_id INT NULL,
+    partner_id INT NOT NULL,  -- supplier reference
+    partner_type VARCHAR(20) NOT NULL CHECK (partner_type IN ('SUPPLIER', 'CUSTOMER')),
     bill_date DATETIME NOT NULL DEFAULT GETDATE(),
     due_date DATETIME NULL,
     currency_code VARCHAR(10) NOT NULL DEFAULT 'MYR',
@@ -1588,7 +1631,7 @@ Defines tax rules applied to transactions.
 ### SQL IMPLEMENTATION
 
 ```sql
-CREATE TABLE TAX(
+CREATE TABLE Tax(
     id INT IDENTITY(1,1) PRIMARY KEY,
     tax_code VARCHAR(20) NOT NULL UNIQUE,
     description VARCHAR(255) NULL,

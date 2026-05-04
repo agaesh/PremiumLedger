@@ -79,14 +79,6 @@ This system models real-world business processes using a **database-first approa
   
 ---
 
-Your instinct is right — the **initial “Key Relationships” section is too generic and slightly inconsistent** with your final architecture (Documents + Bill layer + tenant isolation).
-
-Some links like `Orders` and `Purchases` are now **abstracted into Documents**, so keeping them creates confusion and weakens your design clarity.
-
-Here’s the **clean, corrected, production-level relationship section** 👇
-
----
-
 # 🔗 **Key Relationships (Updated & Aligned with Final Design)**
 
 ### 👤 User & Company

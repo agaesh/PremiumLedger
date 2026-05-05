@@ -68,7 +68,7 @@ This system models real-world business processes using a **database-first approa
 #### Entities:
 * Users
 * Products
-* Product_Groups
+* Product_Metadata
 * Suppliers
 * Customers
 * Product_UOM
@@ -715,7 +715,7 @@ It acts as a **unified master table for product classification and grouping stru
 
 #### 1. Primary Key
 
-* **id** – Uniquely identifies each product_group record in the system
+* **id** – Uniquely identifies each Product_Metadata record in the system
 
 #### 2. Unique Constraint
  
@@ -746,7 +746,7 @@ It acts as a **unified master table for product classification and grouping stru
     
 ---
 
-### 📦 Data Integrity Rules – Product_Groups (Brief)
+### 📦 Data Integrity Rules – Product_Metadata (Brief)
 
 * **Code is required & unique**
   Each record must have a unique system-defined `code` following a consistent format.
@@ -937,7 +937,7 @@ The **SUPPLIERS** table acts as the centralized master entity for managing all v
 ## 🧠 SQL Server Implementation
 
 ```sql
-CREATE TABLE suppliers (
+CREATE TABLE Suppliers (
     id INT IDENTITY(1,1) PRIMARY KEY,
 
     supplier_code VARCHAR(50) NOT NULL UNIQUE,
